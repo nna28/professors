@@ -2,12 +2,9 @@
 
 Module xây dựng hệ thống mạng lưới nhà khoa học.
 
-## Thành viên
-
-
-
 ## Mô tả
 
-## Công nghệ sử dụng
+Thực hiện trích xuất thông tin và đồ thị hóa.
 
-## Cài đặt
+Tech stack: Neo4j, neomodel, pandas
+

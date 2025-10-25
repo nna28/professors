@@ -1,5 +1,12 @@
 from neomodel import (
-    config, StructuredNode, StructuredRel, StringProperty, UniqueIdProperty, RelationshipTo
+    config,
+    StructuredNode,
+    StructuredRel,
+    StringProperty,
+    UniqueIdProperty,
+    RelationshipTo,
+    RelationshipFrom,
+    JSONProperty,
 )
 import os
 from dotenv import load_dotenv
@@ -23,3 +30,20 @@ class Person(StructuredNode):
     field = RelationshipTo(Field, 'WORKS_IN')
 
 
+class Relation(StructuredRel):
+    label = StringProperty(required=True)
+    source = StringProperty(default="wikipedia")
+    metadata = JSONProperty(default=dict)
+
+
+class Entity(StructuredNode):
+    uid = UniqueIdProperty()
+    link = StringProperty(unique_index=True, required=True)
+    name = StringProperty()
+    entity_type = StringProperty()
+    wikidata = StringProperty()
+    source = StringProperty(default="wikipedia")
+    metadata = JSONProperty(default=dict)
+
+    outgoing = RelationshipTo('Entity', 'RELATED_TO', model=Relation)
+    incoming = RelationshipFrom('Entity', 'RELATED_TO', model=Relation)

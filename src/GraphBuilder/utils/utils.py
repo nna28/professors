@@ -42,7 +42,7 @@ def get_name(soup: BeautifulSoup) -> str:
     try:
         
         name = soup.find("h1").string
-        print(name)
+        # print(name)
         return name
     except Exception as e:
         print(e)

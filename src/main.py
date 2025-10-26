@@ -1,15 +1,11 @@
 import argparse
-from GraphBuilder.builder import GraphBuilder
-
-args = argparse.ArgumentParser()
-
-args.add_argument("-data", default="./data/nha_khoa_hoc_wikidata.csv")
-
+from GraphBuilder.builder import Graph
+from dotenv import load_dotenv
 
 if __name__ == "__main__":
-    params = {
-        "data": args.parse_args().data
-    }
-
-    builder = GraphBuilder(**params)
-    builder.run()
+    
+    load_dotenv()
+    
+    g: Graph = Graph.load()
+    
+    g.build()

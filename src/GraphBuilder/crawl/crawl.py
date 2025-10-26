@@ -92,6 +92,89 @@ def characterize_type_by_edge(labels: Set[str]) -> str:
         return "PERSON" if strong_person else ("ORGANIZATION" if strong_org else ("PLACE" if strong_place else "UNKNOWN"))
     return best_type
         
+def isPerson(link) -> bool:
+    """
+    Determine whether the Wikipedia page behind `link` describes a person.
+    The decision is primarily driven by infobox signals with a fallback to
+    category heuristics when an infobox is missing or ambiguous.
+    """
+    
+    print(link)
+    try:
+        page = requests.get(
+            f"https://vi.wikipedia.org{link}",
+            headers=my_headers,
+            timeout=10,
+        )
+        page.raise_for_status()
+    except requests.RequestException as exc:
+        print(f"Failed to fetch {link}: {exc}")
+        return False
+
+    soup = BeautifulSoup(page.content, "html.parser")
+
+    name = get_name(soup)
+    if not name:
+        return False
+
+    node_labels: Set[str] = set()
+    ent_type = "UNKNOWN"
+
+    if (info := get_infobox(soup)):
+        for th in info.select("tr > th.infobox-label"):
+            label_text = th.get_text(strip=True)
+            if label_text:
+                node_labels.add(label_text)
+
+        ent_type = characterize_type_by_edge(node_labels)
+        if ent_type == "PERSON":
+            return True
+        if ent_type in {"ORGANIZATION", "PLACE"}:
+            return False
+
+    # Fallback: use category section heuristics when infobox data is missing/inconclusive.
+    category_block = soup.find("div", id="mw-normal-catlinks")
+    if category_block:
+        categories = [
+            a.get_text(strip=True).lower()
+            for a in category_block.select("li > a")
+        ]
+        person_markers = {"nhà ", "người", "sinh", "births", "nhân vật"}
+        non_person_markers = {"công ty", "thành phố", "quốc gia", "tỉnh", "tác phẩm"}
+
+        if any(any(marker in cat for marker in person_markers) for cat in categories):
+            return True
+        if any(any(marker in cat for marker in non_person_markers) for cat in categories):
+            return False
+
+    # With no strong signals we conservatively assume non-person.
+    return False
+    
+labels = [
+    "Giải thưởng",
+    "Sinh",
+    "Nơi công tác",
+    "Học vị",
+    "Các sinh viên nổi tiếng",
+    "Tài liệu",
+    "Luận án",
+    "Giáo dục",
+    "Người hướng dẫn luận án tiến sĩ",
+    "Mất",
+    "Trường lớp",
+    "Các nghiên cứu sinh nổi tiếng",
+    "Nổi tiếng vì",
+    "Phối ngẫu",
+    "Giải thưởng nổi bật",
+    "Nghề nghiệp",
+    "Cố vấn nghiên cứu khác",
+    "Ảnh hưởng bởi",
+    "Ảnh hưởng tới",
+    "Hôn nhân", 
+    "Con cái",
+    "Quốc tịch"
+    
+]
 
 
 class ExtractWiki:
@@ -111,7 +194,7 @@ class ExtractWiki:
         # visited: Dict[str, bool] = defaultdict(lambda: False)
 
         
-        while (not self.q.isEmpty()) and len(self.nodes.keys()) <= 2000:
+        while (not self.q.isEmpty()) or len(self.nodes.keys()) <= 2000:
             link = self.q.dequeue()
             # print(link)
             self.visited.add(link)
@@ -140,13 +223,17 @@ class ExtractWiki:
 
         
         node_labels: Set[str] = set()
-
+        print(link, name)
         if (info := get_infobox(soup)):
+            # print("1")
             for tr in info.find_all("tr"):
                 if (edge := tr.find("th", class_ = "infobox-label")):
                     label_text = edge.get_text(strip=True) if edge else None
                     if label_text:
                         node_labels.add(label_text)
+                    print(label_text)
+                    if not (label_text in labels):
+                        continue
                     for a_ele in tr.find_all("a"):
                         if a_ele.string:
                             if (href := a_ele.get("href")):
@@ -242,14 +329,14 @@ def get_all_href(link) -> List[str]:
 if __name__ == "__main__":
     
     seeds = [
-        "/wiki/Danh_s%C3%A1ch_ng%C6%B0%E1%BB%9Di_%C4%91o%E1%BA%A1t_gi%E1%BA%A3i_Nobel_V%E1%BA%ADt_l%C3%BD",
-        "/wiki/Danh_s%C3%A1ch_ng%C6%B0%E1%BB%9Di_%C4%91o%E1%BA%A1t_gi%E1%BA%A3i_Nobel_H%C3%B3a_h%E1%BB%8Dc",
-        "/wiki/Danh_s%C3%A1ch_ng%C6%B0%E1%BB%9Di_%C4%91o%E1%BA%A1t_gi%E1%BA%A3i_Nobel_V%C4%83n_h%E1%BB%8Dc"
+        "/wiki/Danh_s%C3%A1ch_ng%C6%B0%E1%BB%9Di_%C4%91o%E1%BA%A1t_gi%E1%BA%A3i_Nobel"
     ]
     
     extracter = ExtractWiki()
     
     seeds = [link for seed in seeds for link in get_all_href(seed)]
+    # for link in seeds:
+    #     print(link)
     try:
         extracter.traversal(seeds)
     except Exception as e:
@@ -261,7 +348,6 @@ if __name__ == "__main__":
     # page = requests.get("https://vi.wikipedia.org/wiki/Guglielmo_Marconi", headers=my_headers)
     # soup = BeautifulSoup(page.content, "html.parser")
     # print(get_name(soup))
-
 
 
 
